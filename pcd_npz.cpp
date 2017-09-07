@@ -16,7 +16,7 @@ using namespace std;
 
 void help(int argc, char **argv)
 {
-    cout << argv[0] << " <input.<pcd|npz>> [output.<npz|pcd>]" << endl;
+    cout << argv[0] << " <input.<pcd|npz>|input_folder> [output.<npz|pcd>|output_folder] [xyz=xyz] [normal=normal_est]" << endl;
 }
 
 template<typename PointType>
@@ -170,21 +170,8 @@ int npz2pcd(const cnpy::npz_t& npz, pcl::PointCloud<pcl::PointNormal>& pcd, cons
     return 0;
 }
 
-int main(int argc, char **argv)
+int process(string fnameIn, string fnameOut, map<string, string> names)
 {
-    if (argc < 2) {
-        help(argc, argv);
-        return -1;
-    }
-
-    string fnameIn(argv[1]);
-    string fnameOut;
-    if(argc>2) fnameOut=string(argv[2]);
-    
-    map<string, string> names;
-    names["xyz"]="data";
-    names["normal"]="normal";
-
     int ret=0;
     if (fnameIn.find(".npz")!=string::npos) { //npz2pcd
         if (fnameOut.size() == 0) {
@@ -241,4 +228,32 @@ int main(int argc, char **argv)
     }
 
     return ret;
+}
+
+int main(int argc, char **argv)
+{
+	if (argc < 2) {
+		help(argc, argv);
+		return -1;
+	}
+
+	string fnameIn(argv[1]);
+	string fnameOut;
+	if (argc > 2) fnameOut = string(argv[2]);
+
+	map<string, string> names;
+	names["xyz"] = "data";
+	names["normal"] = "normal";
+
+	for (int i = 3; i < argc; ++i) {
+		string argvi(argv[i]);
+		size_t pos = argvi.find("=");
+		if (pos != string::npos) {
+			string key = argvi.substr(0, pos);
+			string val = argvi.substr(pos + 1);
+			names[key] = val;
+		}
+	}
+
+	return process(fnameIn, fnameOut, names);
 }
