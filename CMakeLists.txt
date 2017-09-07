@@ -22,7 +22,7 @@ include_directories(${ZLIB_ROOT}/include)
 if(WIN32)
     set(ZLIB_STATICLIB ${ZLIB_ROOT}/lib/zlibstatic.lib)
 else()
-    set(ZLIB_STATICLIB ${ZLIB_ROOT}/lib/zlibstatic.a)
+    set(ZLIB_STATICLIB ${ZLIB_ROOT}/lib/libz.a)
 endif()
 
 add_executable(${ProjectName} ${ProjectName}.cpp ${CNPY_SRC})
