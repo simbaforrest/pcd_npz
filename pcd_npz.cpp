@@ -8,6 +8,8 @@
 #include <pcl/point_cloud.h>
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/point_types.h>
+#include <pcl/features/normal_3d.h>
+#include <pcl/features/principal_curvatures.h>
 #include <pcl/io/pcd_io.h>
 
 #include "cnpy.h"
@@ -16,7 +18,37 @@ using namespace std;
 
 void help(int argc, char **argv)
 {
-    cout << argv[0] << " <input.<pcd|npz>|input_folder> [output.<npz|pcd>|output_folder] [xyz=xyz] [normal=normal_est]" << endl;
+    cout << argv[0] << " <input.<pcd|npz>|input_folder> [output.<npz|pcd>|output_folder] [xyz=xyz] [normal=normal_est] [pc=pc]" << endl;
+}
+
+int estimate_principal_curvatures(const pcl::PointCloud<pcl::PointNormal>& pcdIn, pcl::PointCloud<pcl::PrincipalCurvatures>& pcdOut, const int k=25)
+{
+    using namespace pcl;
+    PointCloud<PointNormal>::Ptr pcdInPtr(pcdIn.makeShared());
+    PrincipalCurvaturesEstimation<PointXYZ, Normal, PrincipalCurvatures> pce;
+    PointCloud<Normal>::Ptr normals(new PointCloud<Normal>());
+    pcl::copyPointCloud<PointNormal, Normal>(pcdIn, *normals);
+    PointCloud<PointXYZ>::Ptr xyz(new PointCloud<PointXYZ>());
+    pcl::copyPointCloud<PointNormal, PointXYZ>(pcdIn, *xyz);
+    pce.setInputNormals(normals);
+    pce.setInputCloud(xyz);
+    
+    boost::shared_ptr<vector<int> > indices(new vector<int>());
+    indices->resize(pcdIn.size());
+    for (int i = 0; i < indices->size(); ++i)
+        (*indices)[i] = i;
+    pce.setIndices(indices);
+
+    typedef search::KdTree<PointXYZ>::Ptr KdTreePtr;
+    KdTreePtr tree;
+    tree.reset(new search::KdTree<PointXYZ>(false));
+    tree->setInputCloud(xyz);
+    pce.setSearchMethod(tree);
+    pce.setKSearch(k);
+
+    pce.compute(pcdOut);
+
+    return 0;
 }
 
 template<typename PointType>
@@ -102,6 +134,28 @@ int pcd2npz(const pcl::PointCloud<pcl::PointNormal>& pcd, const string& fname, c
         const string normal_name = find_name("normal", "normal", names);
         cnpy::npz_save(fname.c_str(), xyz_name.c_str(), xyz_buf, shape, 3, "w");
         cnpy::npz_save(fname.c_str(), normal_name.c_str(), normal_buf, shape, 3, "a");
+
+        if (names.find("pc") != names.end()) {
+            pcl::PointCloud<pcl::PrincipalCurvatures> pcs;
+            estimate_principal_curvatures(pcd, pcs);
+            vector<float> pc(2 * npts);
+            float *pc_buf = &pc[0];
+            {
+                int di = 0;
+                for (int ci = 0; ci < 2; ++ci) {
+                    for (int hi = 0; hi < h; ++hi) {
+                        for (int wi = 0; wi < w; ++wi, ++di) {
+                            float tmp = *(&(pcs.at(wi, hi).pc1) + ci);
+                            if (pcl_isnan(tmp)) tmp = 0.f;
+                            pc_buf[di] = tmp;
+                        }
+                    }
+                }
+            }
+            const unsigned int shape2[] = { 2, h, w };
+            const string pc_name = find_name("pc", "pc", names);
+            cnpy::npz_save(fname.c_str(), pc_name.c_str(), pc_buf, shape2, 3, "a");
+        }
     } catch (...) {
         return -1;
     }
