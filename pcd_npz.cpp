@@ -21,7 +21,7 @@ void help(int argc, char **argv)
     cout << argv[0] << " <input.<pcd|npz>|input_folder> [output.<npz|pcd>|output_folder] [xyz=xyz] [normal=normal_est] [pc=pc]" << endl;
 }
 
-int estimate_principal_curvatures(const pcl::PointCloud<pcl::PointNormal>& pcdIn, pcl::PointCloud<pcl::PrincipalCurvatures>& pcdOut, const int k=25)
+int estimate_principal_curvatures(const pcl::PointCloud<pcl::PointNormal>& pcdIn, pcl::PointCloud<pcl::PrincipalCurvatures>& pcdOut, const int k=49)
 {
     using namespace pcl;
     PointCloud<PointNormal>::Ptr pcdInPtr(pcdIn.makeShared());
@@ -44,7 +44,8 @@ int estimate_principal_curvatures(const pcl::PointCloud<pcl::PointNormal>& pcdIn
     tree.reset(new search::KdTree<PointXYZ>(false));
     tree->setInputCloud(xyz);
     pce.setSearchMethod(tree);
-    pce.setKSearch(k);
+    //pce.setKSearch(k);
+    pce.setRadiusSearch(0.03);
 
     pce.compute(pcdOut);
 
