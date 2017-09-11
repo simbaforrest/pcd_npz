@@ -132,9 +132,17 @@ int pcd2npz(const pcl::PointCloud<pcl::PointNormal>& pcd, const string& fname, c
         const unsigned int shape[]={3, h, w};
         const string xyz_name = find_name("xyz", "data", names);
         const string normal_name = find_name("normal", "normal", names);
-        cnpy::npz_save(fname.c_str(), xyz_name.c_str(), xyz_buf, shape, 3, "w");
-        cnpy::npz_save(fname.c_str(), normal_name.c_str(), normal_buf, shape, 3, "a");
-
+        string mode="";
+        if (names.find("xyz") != names.end()) {
+            if (mode == "") mode = "w";
+            else if (mode == "w") mode = "a";
+            cnpy::npz_save(fname.c_str(), xyz_name.c_str(), xyz_buf, shape, 3, mode);
+        }
+        if (names.find("normal") != names.end()) {
+            if (mode == "") mode = "w";
+            else if (mode == "w") mode = "a";
+            cnpy::npz_save(fname.c_str(), normal_name.c_str(), normal_buf, shape, 3, mode);
+        }
         if (names.find("pc") != names.end()) {
             pcl::PointCloud<pcl::PrincipalCurvatures> pcs;
             estimate_principal_curvatures(pcd, pcs);
@@ -154,7 +162,9 @@ int pcd2npz(const pcl::PointCloud<pcl::PointNormal>& pcd, const string& fname, c
             }
             const unsigned int shape2[] = { 2, h, w };
             const string pc_name = find_name("pc", "pc", names);
-            cnpy::npz_save(fname.c_str(), pc_name.c_str(), pc_buf, shape2, 3, "a");
+            if (mode == "") mode = "w";
+            else if (mode == "w") mode = "a";
+            cnpy::npz_save(fname.c_str(), pc_name.c_str(), pc_buf, shape2, 3, mode);
         }
     } catch (...) {
         return -1;
@@ -296,8 +306,6 @@ int main(int argc, char **argv)
     if (argc > 2) fnameOut = string(argv[2]);
 
     map<string, string> names;
-    names["xyz"] = "data";
-    names["normal"] = "normal";
 
     for (int i = 3; i < argc; ++i) {
         string argvi(argv[i]);
@@ -307,6 +315,11 @@ int main(int argc, char **argv)
             string val = argvi.substr(pos + 1);
             names[key] = val;
         }
+    }
+
+    if (names.empty()) {
+        names["xyz"] = "data";
+        names["normal"] = "normal";
     }
 
     return process(fnameIn, fnameOut, names);
